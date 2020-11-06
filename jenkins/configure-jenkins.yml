@@ -1,0 +1,49 @@
+- name: Configure Jenkins and required plugins
+  hosts: jenkins
+  become: true
+  tasks:
+
+    - name: Wait for Jenkins to come up
+      uri:
+        url: "http://127.0.0.1:8080/login?from=%2F"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 20
+      delay: 3
+
+    - name: Get initial Jenkins password
+      command: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkinspass
+
+    - debug: 
+        var: jenkinspass.stdout
+
+    - name: Install Jenkins plugins
+      jenkins_plugin:
+        name: "{{ item }}"
+        url_username: admin
+        url_password: "{{ jenkinspass.stdout }}"
+      loop:
+        - ssh-slaves
+        - git
+        - github
+        - ws-cleanup
+        - ansicolor
+        - rebuild
+        - build-with-paramteres
+        - build-timestamp
+        - pipeline-utility-steps
+        - workflow-aggregator
+        - ldap
+        - credentials-plugin
+        - credentials-binding
+        - aws-credentials
+      notify:
+        - Restart Jenkins
+
+  handlers:
+    - name: Restart Jenkins
+      service:
+        name: jenkins
+        state: restarted
